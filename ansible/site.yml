@@ -1,0 +1,42 @@
+---
+# site.yml — Playbook principal
+# PoC MSPR Bloc 2 — COGIP / Tesker
+# Ordre : common -> nfs_server -> k3s_server -> k3s_agent -> platform -> odoo
+
+- name: Préparation commune de tous les nœuds
+  hosts: k3s_cluster
+  become: true
+  gather_facts: true
+  roles:
+    - common
+
+- name: Serveur NFS (co-localisé sur le control-plane)
+  hosts: control_plane
+  become: true
+  roles:
+    - nfs_server
+
+- name: Installation du control-plane K3s
+  hosts: control_plane
+  become: true
+  roles:
+    - k3s_server
+
+# Le groupe [workers] peut être vide (repli nœud unique) : le play est alors ignoré sans erreur.
+- name: Installation des workers K3s
+  hosts: workers
+  become: true
+  roles:
+    - k3s_agent
+
+- name: Plateforme — NFS provisioner + cert-manager (Helm)
+  hosts: control_plane
+  become: true
+  roles:
+    - platform
+
+- name: Déploiement applicatif — Odoo + PostgreSQL
+  hosts: control_plane
+  become: true
+  roles:
+    - odoo

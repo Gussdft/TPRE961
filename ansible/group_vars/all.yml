@@ -1,0 +1,38 @@
+---
+# group_vars/all.yml — Variables partagées
+# PoC MSPR Bloc 2 — COGIP / Tesker
+#
+# ⚠️ Secrets en clair pour le PoC. En production : Ansible Vault.
+
+# --- K3s ---
+k3s_version: "v1.30.4+k3s1"
+# Jeton partagé control-plane / agents (à régénérer en prod via Vault).
+k3s_token: "cogip-mspr-k3s-shared-token-change-me"
+# Hôte du control-plane (déduit de l'inventaire).
+control_plane_ip: "{{ hostvars[groups['control_plane'][0]].ansible_host }}"
+
+# --- NFS (co-localisé sur le control-plane) ---
+nfs_export_path: "/srv/nfs/k8s"
+nfs_storage_class: "nfs-client"
+
+# --- Plateforme (Helm) ---
+cert_manager_version: "v1.15.3"
+
+# --- Odoo / PostgreSQL ---
+odoo_namespace: "odoo"
+odoo_image: "odoo:17.0"
+postgres_image: "postgres:16-alpine"
+
+postgres_db: "postgres"
+postgres_user: "odoo"
+postgres_password: "odoo-pg-pwd-change-me"
+
+# Mot de passe maître Odoo (création/gestion des bases).
+odoo_master_password: "admin-cogip-change-me"
+
+# Nom d'hôte exposé via l'Ingress Traefik.
+odoo_host: "odoo.cogip.local"
+
+# Tailles des volumes persistants (NFS).
+postgres_storage: "5Gi"
+odoo_storage: "3Gi"

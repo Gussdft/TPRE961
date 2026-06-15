@@ -1,0 +1,14 @@
+# terraform.tfvars.example
+# Copier en terraform.tfvars puis renseigner la clé SSH publique.
+# terraform.tfvars est ignoré par git (contient une donnée propre au poste).
+#
+# Générer la clé si besoin :
+#   ssh-keygen -t ed25519 -f ~/.ssh/mspr_ed25519 -N "" -C "mspr-cogip"
+# Puis coller le contenu de ~/.ssh/mspr_ed25519.pub ci-dessous :
+
+ssh_public_key = "ssh-ed25519 AAAA...REMPLACER... mspr-cogip"
+
+# (Optionnel) surcharge de la topologie pour le repli nœud unique :
+# nodes = {
+#   k3s-cp = { cpus = 2, memory = "4G", disk = "10G", role = "server" }
+# }

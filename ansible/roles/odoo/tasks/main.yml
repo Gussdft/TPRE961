@@ -1,0 +1,47 @@
+---
+# role odoo — Déploiement d'Odoo + PostgreSQL via manifests Kubernetes.
+# Images officielles multi-arch (arm64 OK). Application via kubernetes.core.k8s.
+
+- name: Appliquer les manifests Odoo / PostgreSQL
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', item) | from_yaml_all | list }}"
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+  loop:
+    - namespace.yaml.j2
+    - clusterissuer.yaml.j2
+    - postgres.yaml.j2
+    - odoo.yaml.j2
+    - ingress.yaml.j2
+
+- name: Attendre que PostgreSQL soit disponible
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ odoo_namespace }}"
+    name: postgres
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 240
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Attendre qu'Odoo soit disponible
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ odoo_namespace }}"
+    name: odoo
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Récapitulatif d'accès
+  ansible.builtin.debug:
+    msg:
+      - "Odoo déployé dans le namespace '{{ odoo_namespace }}'."
+      - "URL : https://{{ odoo_host }}  (certificat auto-signé à accepter)"
+      - "Ajoute à /etc/hosts : {{ control_plane_ip }} {{ odoo_host }}  (voir 'make hosts')"
+      - "Mot de passe maître Odoo : {{ odoo_master_password }}"

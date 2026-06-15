@@ -1,0 +1,38 @@
+---
+# role common — Préparation de base de tous les nœuds.
+
+- name: Mettre à jour le cache APT
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Installer les paquets de base
+  ansible.builtin.apt:
+    name:
+      - curl
+      - nfs-common
+      - python3
+      - python3-pip
+    state: present
+
+- name: Charger le module noyau br_netfilter
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Persister br_netfilter au démarrage
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: "br_netfilter\n"
+    mode: "0644"
+
+- name: Régler les sysctl réseau requis par Kubernetes
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - net.bridge.bridge-nf-call-iptables
+    - net.ipv4.ip_forward

@@ -1,0 +1,19 @@
+---
+# role k3s_agent — Joint les workers au control-plane K3s.
+
+- name: Installer l'agent K3s et joindre le cluster
+  ansible.builtin.shell:
+    cmd: >
+      curl -sfL https://get.k3s.io |
+      INSTALL_K3S_VERSION="{{ k3s_version }}"
+      K3S_URL="https://{{ control_plane_ip }}:6443"
+      K3S_TOKEN="{{ k3s_token }}"
+      sh -s - agent
+      --node-ip {{ ansible_host }}
+    creates: /etc/systemd/system/k3s-agent.service
+
+- name: Attendre que l'agent K3s soit actif
+  ansible.builtin.systemd:
+    name: k3s-agent
+    state: started
+    enabled: true

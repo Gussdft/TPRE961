@@ -1,0 +1,76 @@
+---
+# role platform — Briques de plateforme installées via Helm sur le control-plane.
+# 1) nfs-subdir-external-provisioner  -> StorageClass "nfs-client" (par défaut)
+# 2) cert-manager                     -> émission de certificats (Ingress HTTPS)
+# Helm n'est utilisé QUE pour ces deux composants (pas pour Odoo).
+
+- name: Installer la bibliothèque Python kubernetes (requise par kubernetes.core)
+  ansible.builtin.pip:
+    name:
+      - kubernetes>=24.2.0
+      - PyYAML
+    state: present
+    break_system_packages: true
+
+- name: Vérifier la présence de Helm
+  ansible.builtin.command: helm version
+  register: helm_check
+  failed_when: false
+  changed_when: false
+
+- name: Installer Helm
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  when: helm_check.rc != 0
+
+- name: Ajouter les dépôts Helm
+  kubernetes.core.helm_repository:
+    name: "{{ item.name }}"
+    repo_url: "{{ item.url }}"
+  loop:
+    - { name: "nfs-subdir-external-provisioner", url: "https://kubernetes-sigs.github.io/nfs-subdir-external-provisioner/" }
+    - { name: "jetstack", url: "https://charts.jetstack.io" }
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+- name: Déployer le NFS subdir external provisioner (StorageClass nfs-client par défaut)
+  kubernetes.core.helm:
+    name: nfs-subdir-external-provisioner
+    chart_ref: nfs-subdir-external-provisioner/nfs-subdir-external-provisioner
+    release_namespace: nfs-provisioner
+    create_namespace: true
+    wait: true
+    values:
+      nfs:
+        server: "{{ control_plane_ip }}"
+        path: "{{ nfs_export_path }}"
+      storageClass:
+        name: "{{ nfs_storage_class }}"
+        defaultClass: true
+        reclaimPolicy: Retain
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Déployer cert-manager (avec CRDs)
+  kubernetes.core.helm:
+    name: cert-manager
+    chart_ref: jetstack/cert-manager
+    chart_version: "{{ cert_manager_version }}"
+    release_namespace: cert-manager
+    create_namespace: true
+    wait: true
+    values:
+      crds:
+        enabled: true
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+
+- name: Attendre que cert-manager soit déployé
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: cert-manager
+    name: cert-manager-webhook
+    wait: true
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 240
+    kubeconfig: /etc/rancher/k3s/k3s.yaml

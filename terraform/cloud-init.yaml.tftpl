@@ -1,0 +1,24 @@
+#cloud-config
+# Template cloud-init rendu par Terraform pour chaque VM.
+# Crée l'utilisateur ubuntu avec la clé SSH dédiée et installe les paquets de base.
+hostname: ${hostname}
+preserve_hostname: false
+
+users:
+  - name: ubuntu
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    groups: [sudo]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - nfs-common
+  - python3
+
+# Évite que cloud-init ne réinitialise SSH au reboot
+ssh_pwauth: false

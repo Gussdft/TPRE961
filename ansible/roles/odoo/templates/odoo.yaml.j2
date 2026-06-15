@@ -1,0 +1,115 @@
+# Odoo 17 (image officielle). Connexion DB via HOST/PORT/USER/PASSWORD
+# (lus par l'entrypoint officiel). odoo.conf monté pour le mot de passe maître.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: odoo-config
+  namespace: {{ odoo_namespace }}
+data:
+  odoo.conf: |
+    [options]
+    admin_passwd = {{ odoo_master_password }}
+    db_host = postgres
+    db_port = 5432
+    db_user = {{ postgres_user }}
+    db_password = {{ postgres_password }}
+    addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
+    proxy_mode = True
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: odoo-data
+  namespace: {{ odoo_namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ nfs_storage_class }}
+  resources:
+    requests:
+      storage: {{ odoo_storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: odoo
+  namespace: {{ odoo_namespace }}
+  labels:
+    app: odoo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: odoo
+  template:
+    metadata:
+      labels:
+        app: odoo
+    spec:
+      containers:
+        - name: odoo
+          image: {{ odoo_image }}
+          env:
+            - name: HOST
+              value: postgres
+            - name: PORT
+              value: "5432"
+            - name: USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 8069
+              name: http
+            - containerPort: 8072
+              name: longpolling
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /web/database/selector
+              port: 8069
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 10
+          volumeMounts:
+            - name: odoo-data
+              mountPath: /var/lib/odoo
+            - name: odoo-config
+              mountPath: /etc/odoo/odoo.conf
+              subPath: odoo.conf
+      volumes:
+        - name: odoo-data
+          persistentVolumeClaim:
+            claimName: odoo-data
+        - name: odoo-config
+          configMap:
+            name: odoo-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo
+  namespace: {{ odoo_namespace }}
+spec:
+  selector:
+    app: odoo
+  ports:
+    - name: http
+      port: 8069
+      targetPort: 8069
+    - name: longpolling
+      port: 8072
+      targetPort: 8072
