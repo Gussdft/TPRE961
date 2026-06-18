@@ -17,8 +17,8 @@ ssh-key: ## Génère la clé SSH dédiée si absente et affiche la clé publique
 	@echo "--- Clé publique à coller dans $(TF_DIR)/terraform.tfvars ---"
 	@cat $(SSH_KEY).pub
 
-up: ## Crée les VMs Multipass (terraform apply)
-	cd $(TF_DIR) && terraform init -upgrade && terraform apply -auto-approve
+up: ## Crée les VMs Multipass (terraform apply, séquentiel pour ménager la RAM)
+	cd $(TF_DIR) && terraform init -upgrade && terraform apply -auto-approve -parallelism=1
 
 inventory: ## Génère ansible/inventory.ini depuis les IP Multipass
 	@echo "Attente de l'attribution des IP (~20 s)..." && sleep 20
